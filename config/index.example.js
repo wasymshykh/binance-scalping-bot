@@ -1,0 +1,2 @@
+module.exports.API_KEY = "YOUR_BINANCE_API_KEY";
+module.exports.API_SECRET = "YOUR_BINANCE_API_KEY_SECRET";
