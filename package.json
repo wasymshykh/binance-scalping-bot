@@ -10,8 +10,10 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "asciichart": "^1.5.25",
     "axios": "^0.21.1",
     "lowdb": "^2.1.0",
+    "technicalindicators": "^3.1.0",
     "ws": "^7.5.0"
   }
 }
