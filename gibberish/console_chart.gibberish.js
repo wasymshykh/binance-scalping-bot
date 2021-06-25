@@ -1,6 +1,9 @@
 const axios = require('axios');
-const asciichart = require('asciichart');
+const asciichart = require('../asciichart');
 const {RSI} = require('technicalindicators');
+const Jetty = require('jetty');
+
+const jetty = new Jetty(process.stdout);
 
 const SERVER = "https://api.binance.com/api";
 
@@ -14,12 +17,16 @@ const p = (p) => {
 
 const PRECISION = 4; // every pair has some different precision
 const LIMIT_OFFSET = { upper: 0, lower: 0 }; // for better numbers on chart y axis label
+
 const PAIR = 'ADABUSD';
+const CANDLESTICK_INTERVAL = '1m';
+const CANDLESTICK_RESULTS_LIMIT = 60;
+
 const RSI_PERIOD = 14; // default is 14
 const CONSOLE_WIDTH = 80;
 
 // last one hour
-let { payload } = p ({symbol: PAIR, interval: '1m', limit: 60 });
+let { payload } = p ({symbol: PAIR, interval: CANDLESTICK_INTERVAL, limit: CANDLESTICK_RESULTS_LIMIT });
 let kline_url = r(`v3/klines?${payload}`);
 
 const handle_error = (error, exit = false) => {
@@ -46,16 +53,21 @@ const print_chart = (data, config = {}) => {
     if (config.colors != undefined) c['colors'] = config.colors; else c['colors'] = [asciichart.red];
     if (config.color != undefined) c['colors'] = [config.color];
 
-    console.log(asciichart.plot(data, c));
+    if (config.return != undefined) {
+        return asciichart.plot(data, c);
+    } else {
+        console.log(asciichart.plot(data, c));
+    }
 
 }
 
 const STATE = { wait: false, last_data_request: null, total_requests: 0, total_requests_sent: 0, total_requests_wait: 0, total_requests_failure: 0 };
 
 const print_chart_headline = (text, first = false, last = false) => {
-    console.log(' '+(first ? '┌' : '├')+'─'.repeat(CONSOLE_WIDTH)+'┐');
-    console.log(` ├ ${text} `+'─'.repeat(CONSOLE_WIDTH-text.length-2)+'┤');
-    console.log(' '+(last ? '┌' : '├')+'─'.repeat(CONSOLE_WIDTH)+'┘');
+    let str = ' '+(first ? '┌' : '├')+'─'.repeat(CONSOLE_WIDTH)+'┐\n';
+    str += ` ├ ${text} `+'─'.repeat(CONSOLE_WIDTH-text.length-2)+'┤\n';
+    str += ' '+(last ? '┌' : '├')+'─'.repeat(CONSOLE_WIDTH)+'┘\n';
+    return str;
 }
 
 const get_kline_data = () => {
@@ -71,13 +83,14 @@ const get_kline_data = () => {
         let max = to(Math.max(...data) + LIMIT_OFFSET.upper);
         let min = to(Math.min(...data) - LIMIT_OFFSET.lower);
         
-        console.clear();
-
-        print_chart_headline(PAIR, true);
-        print_chart(data, {max, min});
+        let str = print_chart_headline(PAIR, true);
+        str += print_chart(data, {max, min, return: true })+ '\n';
         const rsi_data = RSI.calculate({values: data, period: RSI_PERIOD});
-        print_chart_headline('RSI');
-        print_chart(rsi_data, {max: 70, min: 30, height: 6, color: asciichart.blue, precision: 0});
+        str += print_chart_headline(`RSI ${CANDLESTICK_INTERVAL}`);
+        str += print_chart(rsi_data, {max: 70, min: 30, height: 6, color: asciichart.blue, precision: 0, return: true });
+
+        jetty.moveTo([0,0]);
+        jetty.text(str);
         
         STATE.wait = false;
 
@@ -89,6 +102,8 @@ const get_kline_data = () => {
 }
 
 // use websocket instead of this rest interval
+
+jetty.reset().clear().moveTo([0,0]);
 
 setInterval(() => {
 
